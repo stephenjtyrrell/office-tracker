@@ -7,8 +7,19 @@ let monthData = null;
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     bindStaticEvents();
+    loadVersion();
     checkAuth();
 });
+
+async function loadVersion() {
+    try {
+        const response = await fetch('/api/version');
+        const data = await response.json();
+        document.getElementById('app-version').textContent = data.version;
+    } catch (error) {
+        console.error('Failed to load version:', error);
+    }
+}
 
 function bindStaticEvents() {
     const tabLogin = document.getElementById('tab-login');

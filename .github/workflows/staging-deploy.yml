@@ -28,6 +28,20 @@ jobs:
       - name: Run tests (if available)
         run: npm test --if-present
       
+      - name: Increment version
+        run: |
+          VERSION=$(cat VERSION)
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          patch=$((patch + 1))
+          NEW_VERSION="$major.$minor.$patch"
+          echo "$NEW_VERSION" > VERSION
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add VERSION
+          git commit -m "Bump version to $NEW_VERSION [ci skip]"
+          git push
+        if: success()
+      
       - name: Deploy to Render
         run: |
           curl --request POST \

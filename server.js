@@ -4,6 +4,7 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -176,6 +177,16 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/user', requireAuth, (req, res) => {
   const user = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(req.session.userId);
   res.json(user);
+});
+
+// Get app version
+app.get('/api/version', (req, res) => {
+  try {
+    const version = fs.readFileSync(path.join(__dirname, 'VERSION'), 'utf8').trim();
+    res.json({ version });
+  } catch (error) {
+    res.json({ version: 'unknown' });
+  }
 });
 
 // ===== Password Reset Routes =====
