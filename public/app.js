@@ -18,6 +18,10 @@ function bindStaticEvents() {
     const logoutButton = document.getElementById('logout-button');
     const prevMonth = document.getElementById('prev-month');
     const nextMonth = document.getElementById('next-month');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const backToLoginLink = document.getElementById('back-to-login-link');
+    const forgotPasswordForm = document.getElementById('forgot-password-form-el');
+    const resetPasswordForm = document.getElementById('reset-password-form-el');
 
     if (tabLogin) tabLogin.addEventListener('click', () => showTab('login'));
     if (tabRegister) tabRegister.addEventListener('click', () => showTab('register'));
@@ -26,6 +30,16 @@ function bindStaticEvents() {
     if (logoutButton) logoutButton.addEventListener('click', handleLogout);
     if (prevMonth) prevMonth.addEventListener('click', () => changeMonth(-1));
     if (nextMonth) nextMonth.addEventListener('click', () => changeMonth(1));
+    if (forgotPasswordLink) forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showPasswordResetForm();
+    });
+    if (backToLoginLink) backToLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showTab('login');
+    });
+    if (forgotPasswordForm) forgotPasswordForm.addEventListener('submit', handleForgotPassword);
+    if (resetPasswordForm) resetPasswordForm.addEventListener('submit', handleResetPassword);
 }
 
 // Auth Functions
@@ -58,6 +72,7 @@ function showApp() {
 function showTab(tab) {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
     const tabs = document.querySelectorAll('.tab-button');
     
     tabs.forEach(t => t.classList.remove('active'));
@@ -65,12 +80,32 @@ function showTab(tab) {
     if (tab === 'login') {
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
+        forgotPasswordForm.style.display = 'none';
         tabs[0].classList.add('active');
-    } else {
+    } else if (tab === 'register') {
         loginForm.style.display = 'none';
         registerForm.style.display = 'block';
+        forgotPasswordForm.style.display = 'none';
         tabs[1].classList.add('active');
     }
+}
+
+function showPasswordResetForm() {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
+    const tabs = document.querySelectorAll('.tab-button');
+    
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'none';
+    forgotPasswordForm.style.display = 'block';
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    // Show step 1 and hide step 2
+    document.getElementById('reset-step-1').style.display = 'block';
+    document.getElementById('reset-step-2').style.display = 'none';
+    document.getElementById('forgot-error').textContent = '';
+    document.getElementById('reset-error').textContent = '';
 }
 
 async function handleLogin(event) {
@@ -135,6 +170,72 @@ async function handleLogout() {
         showAuth();
     } catch (error) {
         console.error('Logout error:', error);
+    }
+}
+
+// Password Reset Handlers
+async function handleForgotPassword(event) {
+    event.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    const errorDiv = document.getElementById('forgot-error');
+
+    try {
+        const response = await fetch('/api/password-reset/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Show step 2 with the token
+            document.getElementById('reset-step-1').style.display = 'none';
+            document.getElementById('reset-step-2').style.display = 'block';
+            document.getElementById('reset-token').value = data.token;
+            errorDiv.textContent = '';
+        } else {
+            errorDiv.textContent = data.error || 'Failed to process request';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Connection error';
+    }
+}
+
+async function handleResetPassword(event) {
+    event.preventDefault();
+    const token = document.getElementById('reset-token').value;
+    const password = document.getElementById('reset-new-password').value;
+    const errorDiv = document.getElementById('reset-error');
+
+    try {
+        const response = await fetch('/api/password-reset/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            errorDiv.textContent = '';
+            errorDiv.className = 'success-message';
+            errorDiv.textContent = 'Password reset successful! Redirecting to login...';
+            
+            setTimeout(() => {
+                showTab('login');
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+                document.getElementById('reset-step-1').style.display = 'block';
+                document.getElementById('reset-step-2').style.display = 'none';
+            }, 2000);
+        } else {
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = data.error || 'Failed to reset password';
+        }
+    } catch (error) {
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = 'Connection error';
     }
 }
 

@@ -11,7 +11,8 @@ A web application to track office attendance based on the Irish working calendar
 - 📈 **Balance Tracking**: See if you're ahead, behind, or on target
 - 👥 **Multi-user Support**: Separate tracking for each user
 - 🔐 **User Authentication**: Secure registration and login system
-- 📱 **Responsive Design**: Works on desktop and mobile
+- � **Password Reset**: In-app password reset with token-based verification
+- �📱 **Responsive Design**: Works on desktop and mobile
 
 ## Quick Start
 
@@ -70,6 +71,16 @@ Navigate to `http://localhost:3000`
 
 1. Click **Register** and create an account with your email, name, and password
 2. You'll be automatically logged in
+
+### Password Reset
+
+If you forget your password:
+
+1. On the **Login** page, click **"Forgot your password?"**
+2. Enter your email address
+3. A reset token will be generated and displayed
+4. Enter your new password
+5. Your password will be reset immediately
 
 ### Tracking Your Office Days
 
@@ -192,6 +203,7 @@ The application automatically accounts for the following Irish public holidays:
 - **users**: User accounts (id, email, password hash, name)
 - **office_days**: Days user attended office (user_id, date)
 - **annual_leave**: Days user took as annual leave (user_id, date)
+- **password_reset_tokens**: Password reset tokens with 1-hour expiration (user_id, token, expires_at)
 
 ## Security Notes
 
@@ -201,7 +213,8 @@ For production deployment:
 2. Enable HTTPS (most hosting platforms do this automatically)
 3. Consider using a session store (Redis, PostgreSQL) instead of in-memory sessions
 4. Set `NODE_ENV=production`
-5. Regularly update dependencies
+5. Password reset tokens expire after 1 hour for security
+6. Regularly update dependencies
 
 ## Customization
 

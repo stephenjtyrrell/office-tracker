@@ -33,6 +33,42 @@
                     <button type="submit" class="btn btn-primary">Login</button>
                     <div id="login-error" class="error-message"></div>
                 </form>
+                <p class="auth-link"><a href="#forgot-password" id="forgot-password-link">Forgot your password?</a></p>
+            </div>
+
+            <!-- Forgot Password Form -->
+            <div id="forgot-password-form" class="auth-form" style="display: none;">
+                <h2>Reset Password</h2>
+                <div id="reset-step-1">
+                    <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Enter your email address.</p>
+                    <form id="forgot-password-form-el">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="forgot-email" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Reset Password</button>
+                        <div id="forgot-error" class="error-message"></div>
+                    </form>
+                </div>
+                <div id="reset-step-2" style="display: none;">
+                    <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Enter your new password.</p>
+                    <form id="reset-password-form-el">
+                        <input type="hidden" id="reset-token">
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" id="reset-new-password" required 
+                                   minlength="8" 
+                                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+                                   title="Password must be at least 8 characters with uppercase, lowercase, and number">
+                            <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                                Must be 8+ characters with uppercase, lowercase, and number
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Confirm Password Reset</button>
+                        <div id="reset-error" class="error-message"></div>
+                    </form>
+                </div>
+                <p class="auth-link"><a href="#login" id="back-to-login-link">Back to Login</a></p>
             </div>
 
             <!-- Register Form -->

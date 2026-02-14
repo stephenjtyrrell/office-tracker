@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -171,10 +172,118 @@ app.post('/api/logout', (req, res) => {
   res.json({ message: 'Logout successful' });
 });
 
-// Get current user
-app.get('/api/user', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(req.session.userId);
-  res.json(user);
+// Utility function to generate reset token
+function generateResetToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Request password reset
+app.post('/api/password-reset/request', authLimiter, [
+  body('email').isEmail().normalizeEmail()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    const { email } = req.body;
+    
+    // Check if user exists
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (!user) {
+      // Don't reveal if email exists for security
+      return res.json({ message: 'If email exists, reset token has been sent' });
+    }
+
+    // Generate token (valid for 1 hour)
+    const token = generateResetToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    // Store token
+    db.prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
+      .run(user.id, token, expiresAt);
+
+    res.json({ message: 'Reset token generated', token });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// Validate reset token
+app.post('/api/password-reset/validate', [
+  body('token').notEmpty().withMessage('Token required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
+    const { token } = req.body;
+
+    const resetRecord = db.prepare(
+      'SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = ?'
+    ).get(token);
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    if (new Date(resetRecord.expires_at) < new Date()) {
+      // Delete expired token
+      db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
+      return res.status(400).json({ error: 'Token has expired' });
+    }
+
+    res.json({ message: 'Token is valid', userId: resetRecord.user_id });
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({ error: 'Failed to validate token' });
+  }
+});
+
+// Reset password with token
+app.post('/api/password-reset/confirm', [
+  body('token').notEmpty().withMessage('Token required'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('Password must contain uppercase, lowercase, and number')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
+    const { token, password } = req.body;
+
+    const resetRecord = db.prepare(
+      'SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = ?'
+    ).get(token);
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    if (new Date(resetRecord.expires_at) < new Date()) {
+      db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
+      return res.status(400).json({ error: 'Token has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update user password and delete token
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, resetRecord.user_id);
+    db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Password reset confirm error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
 });
 
 // ===== Office Days Routes =====

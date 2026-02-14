@@ -136,6 +136,33 @@ body {
     font-size: 14px;
 }
 
+.success-message {
+    color: #27ae60;
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.auth-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+    color: #666;
+}
+
+.auth-link a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.auth-link a:hover {
+    color: #5568d3;
+    text-decoration: underline;
+}
+
 /* Navbar */
 .navbar {
     background: white;
