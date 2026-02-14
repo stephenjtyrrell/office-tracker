@@ -7,8 +7,38 @@ let monthData = null;
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     bindStaticEvents();
+    loadVersion();
     checkAuth();
+    setupPasswordToggles();
 });
+
+function setupPasswordToggles() {
+    document.querySelectorAll('.toggle-password').forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const passwordInput = document.getElementById(targetId);
+            const eyeIcon = this.querySelector('.eye-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.textContent = '👁️';
+            }
+        });
+    });
+}
+
+async function loadVersion() {
+    try {
+        const response = await fetch('/api/version');
+        const data = await response.json();
+        document.getElementById('app-version').textContent = data.version;
+    } catch (error) {
+        console.error('Failed to load version:', error);
+    }
+}
 
 function bindStaticEvents() {
     const tabLogin = document.getElementById('tab-login');
@@ -113,8 +143,14 @@ async function handleLogin(event) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const errorDiv = document.getElementById('login-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
 
     try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Logging in...';
+        errorDiv.textContent = '';
+
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -132,6 +168,9 @@ async function handleLogin(event) {
         }
     } catch (error) {
         errorDiv.textContent = 'Connection error';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
 }
 
@@ -141,8 +180,14 @@ async function handleRegister(event) {
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
     const errorDiv = document.getElementById('register-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
 
     try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Registering...';
+        errorDiv.textContent = '';
+
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -160,6 +205,9 @@ async function handleRegister(event) {
         }
     } catch (error) {
         errorDiv.textContent = 'Connection error';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
 }
 
@@ -178,8 +226,14 @@ async function handleForgotPassword(event) {
     event.preventDefault();
     const email = document.getElementById('forgot-email').value;
     const errorDiv = document.getElementById('forgot-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
 
     try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+        errorDiv.textContent = '';
+
         const response = await fetch('/api/password-reset/request', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -199,6 +253,9 @@ async function handleForgotPassword(event) {
         }
     } catch (error) {
         errorDiv.textContent = 'Connection error';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
 }
 
@@ -207,8 +264,14 @@ async function handleResetPassword(event) {
     const token = document.getElementById('reset-token').value;
     const password = document.getElementById('reset-new-password').value;
     const errorDiv = document.getElementById('reset-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
 
     try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Resetting...';
+        errorDiv.textContent = '';
+
         const response = await fetch('/api/password-reset/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -223,11 +286,15 @@ async function handleResetPassword(event) {
             errorDiv.textContent = 'Password reset successful! Redirecting to login...';
             
             setTimeout(() => {
-                showTab('login');
+                // Clear all form fields
                 document.getElementById('login-email').value = '';
                 document.getElementById('login-password').value = '';
+                document.getElementById('forgot-email').value = '';
+                document.getElementById('reset-new-password').value = '';
+                document.getElementById('reset-token').value = '';
                 document.getElementById('reset-step-1').style.display = 'block';
                 document.getElementById('reset-step-2').style.display = 'none';
+                showTab('login');
             }, 2000);
         } else {
             errorDiv.className = 'error-message';
@@ -236,6 +303,9 @@ async function handleResetPassword(event) {
     } catch (error) {
         errorDiv.className = 'error-message';
         errorDiv.textContent = 'Connection error';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
     }
 }
 

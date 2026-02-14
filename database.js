@@ -1,59 +1,64 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'office-tracker.db');
-const db = new Database(dbPath);
+const connectionString = process.env.DATABASE_URL;
 
-// Initialize database schema
-function initDatabase() {
-  // Users table
-  db.exec(`
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required to start the server');
+}
+
+const pool = new Pool({
+  connectionString,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+async function initDatabase() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
 
-  // Office days table (days user actually went to office)
-  db.exec(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS office_days (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id),
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(user_id, date)
     )
   `);
 
-  // Annual leave table
-  db.exec(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS annual_leave (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id),
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(user_id, date)
     )
   `);
 
-  // Password reset tokens table
-  db.exec(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token TEXT UNIQUE NOT NULL,
-      expires_at DATETIME NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_office_days_user_date ON office_days(user_id, date)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_annual_leave_user_date ON annual_leave(user_id, date)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at)');
 
   console.log('Database initialized successfully');
 }
 
-module.exports = { db, initDatabase };
+module.exports = { pool, initDatabase };
