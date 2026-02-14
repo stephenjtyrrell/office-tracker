@@ -4,6 +4,11 @@
     box-sizing: border-box;
 }
 
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -239,6 +244,8 @@ body {
     max-width: 1200px;
     margin: 40px auto;
     padding: 0 20px;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 /* Month Selector */
@@ -338,6 +345,8 @@ body {
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .calendar-header {
@@ -365,6 +374,9 @@ body {
     grid-template-columns: repeat(7, 1fr);
     gap: 10px;
     margin-bottom: 20px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .calendar-day {
@@ -378,6 +390,8 @@ body {
     font-weight: 600;
     transition: all 0.3s;
     position: relative;
+    min-width: 0;
+    font-size: clamp(12px, 3vw, 16px);
 }
 
 .calendar-day:hover {
@@ -555,21 +569,68 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
-    .summary-cards {
-        grid-template-columns: 1fr;
+    .auth-container {
+        margin: 20px auto;
+        padding: 30px 20px;
+        max-width: 90%;
     }
     
     .navbar {
+        padding: 15px 20px;
         flex-direction: column;
         gap: 15px;
     }
     
+    .nav-right {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .nav-right button {
+        width: 100%;
+    }
+    
+    .container {
+        padding: 0 15px;
+        margin: 20px auto;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
+    .month-selector {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    #current-month {
+        font-size: 22px;
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .big-number {
+        font-size: 36px;
+    }
+    
+    .calendar-section {
+        padding: 20px 15px;
+        margin: 0 -5px;
+    }
+    
     .calendar {
-        gap: 5px;
+        gap: 6px;
     }
     
     .calendar-day {
-        font-size: 14px;
+        font-size: clamp(11px, 2.5vw, 14px);
+        border-width: 1px;
+        border-radius: 6px;
     }
     
     .calendar-header {
@@ -577,16 +638,122 @@ body {
         align-items: flex-start;
     }
     
+    .calendar-section h3 {
+        font-size: 18px;
+    }
+    
     .calendar-legend-compact {
         width: 100%;
-        justify-content: center;
+        justify-content: flex-start;
+        font-size: 13px;
+    }
+    
+    .legend-item {
+        font-size: 13px;
+    }
+    
+    .legend-color {
+        width: 16px;
+        height: 16px;
     }
     
     .instructions-box {
+        padding: 15px 20px;
         text-align: left;
     }
     
     .instructions-box h4 {
         text-align: center;
+        font-size: 16px;
+    }
+    
+    .instructions-box p {
+        font-size: 14px;
+    }
+    
+    .modal-content {
+        min-width: auto;
+        width: 90%;
+        max-width: 400px;
+        padding: 25px 20px;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .auth-container {
+        padding: 25px 15px;
+    }
+    
+    .auth-container h1 {
+        font-size: 24px;
+    }
+    
+    .subtitle {
+        font-size: 13px;
+    }
+    
+    .tab-button {
+        padding: 10px;
+        font-size: 15px;
+    }
+    
+    .form-group input {
+        padding: 10px;
+        font-size: 15px;
+    }
+    
+    #current-month {
+        font-size: 20px;
+    }
+    
+    .big-number {
+        font-size: 32px;
+    }
+    
+    .card {
+        padding: 20px;
+    }
+    
+    .calendar-section {
+        padding: 15px 10px;
+        margin: 0 -3px;
+    }
+    
+    .calendar {
+        gap: 3px;
+    }
+    
+    .calendar-day {
+        font-size: clamp(10px, 2.2vw, 12px);
+        border-radius: 4px;
+        padding: 2px;
+    }
+    
+    .modal-content {
+        width: 95%;
+        padding: 20px 15px;
+    }
+    
+    .btn-modal {
+        padding: 12px;
+        font-size: 15px;
+    }
+}
+
+/* Improve touch targets for mobile */
+@media (hover: none) and (pointer: coarse) {
+    .calendar-day {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .btn, .tab-button {
+        min-height: 44px;
+    }
+    
+    .toggle-password {
+        min-width: 44px;
+        min-height: 44px;
     }
 }
