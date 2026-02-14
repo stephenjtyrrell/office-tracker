@@ -188,9 +188,11 @@ The application automatically accounts for the following Irish public holidays:
 ### Backend
 
 - **Framework**: Express.js
-- **Database**: SQLite (better-sqlite3)
+- **Database**: SQLite (better-sqlite3) with indexes for optimal performance
 - **Authentication**: bcrypt password hashing with express-session
-- **Session Management**: In-memory sessions (configurable for production)
+- **Session Management**: SQLite session store with 24-hour session expiry
+- **Security**: Helmet for HTTP headers, rate limiting on authentication endpoints
+- **Maintenance**: Automatic cleanup of expired password reset tokens
 
 ### Frontend
 
@@ -205,15 +207,23 @@ The application automatically accounts for the following Irish public holidays:
 - **annual_leave**: Days user took as annual leave (user_id, date)
 - **password_reset_tokens**: Password reset tokens with 1-hour expiration (user_id, token, expires_at)
 
+**Indexes**: Optimized indexes on frequently queried columns (email, user_id+date, token) for fast lookups.
+
+### Monitoring
+
+- **Health Check Endpoint**: `GET /api/health` - Returns server status and database connectivity
+- **Version Endpoint**: `GET /api/version` - Returns current application version
+- **Automatic Maintenance**: Expired password reset tokens are cleaned up hourly
+
 ## Security Notes
 
 For production deployment:
 
-1. Use a strong, random `SESSION_SECRET`
+1. Use a strong, random `SESSION_SECRET` (validated on startup)
 2. Enable HTTPS (most hosting platforms do this automatically)
-3. Consider using a session store (Redis, PostgreSQL) instead of in-memory sessions
-4. Set `NODE_ENV=production`
-5. Password reset tokens expire after 1 hour for security
+3. Set `NODE_ENV=production` (enables environment validation)
+4. Password reset tokens expire after 1 hour for security
+5. Rate limiting: 5 auth attempts per 15 minutes, 100 API calls per minute
 6. Regularly update dependencies
 
 ## Customization

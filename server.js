@@ -16,8 +16,42 @@ const { getWorkingDays, formatDate, getIrishPublicHolidays } = require('./calend
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug logging helper - only log in non-production environments
+const debugLog = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+};
+
+// Validate required environment variables
+if (process.env.NODE_ENV === 'production') {
+  const requiredEnvVars = ['SESSION_SECRET'];
+  const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
+  if (missing.length > 0) {
+    console.error(`ERROR: Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  if (process.env.SESSION_SECRET === 'your-secret-key') {
+    console.error('ERROR: SESSION_SECRET must be changed from default value in production');
+    process.exit(1);
+  }
+}
+
 // Initialize database
 initDatabase();
+
+// Clean up expired password reset tokens every hour
+setInterval(() => {
+  try {
+    const result = db.prepare('DELETE FROM password_reset_tokens WHERE expires_at < datetime("now")').
+      run();
+    if (result.changes > 0) {
+      debugLog(`[CLEANUP] Removed ${result.changes} expired password reset tokens`);
+    }
+  } catch (error) {
+    console.error('Token cleanup error:', error);
+  }
+}, 60 * 60 * 1000); // Run every hour
 
 // Security headers - relaxed for local development
 if (process.env.NODE_ENV === 'production') {
@@ -115,6 +149,7 @@ app.post('/api/register', authLimiter, [
     }
 
     const { email, password, name } = req.body;
+    debugLog('[REGISTER] Registering user:', email);
 
     // Check if user exists
     const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
@@ -124,9 +159,11 @@ app.post('/api/register', authLimiter, [
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+    debugLog('[REGISTER] Password hashed, length:', hashedPassword.length);
 
     // Insert user
     const result = db.prepare('INSERT INTO users (email, password, name) VALUES (?, ?, ?)').run(email, hashedPassword, name);
+    debugLog('[REGISTER] User inserted with ID:', result.lastInsertRowid);
 
     req.session.userId = result.lastInsertRowid;
     res.json({ message: 'Registration successful', userId: result.lastInsertRowid });
@@ -146,8 +183,14 @@ app.post('/api/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!user.password) {
+      console.error('[LOGIN] User has no password hash:', email);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.error('[LOGIN] Password mismatch for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -186,6 +229,24 @@ app.get('/api/version', (req, res) => {
     res.json({ version });
   } catch (error) {
     res.json({ version: 'unknown' });
+  }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  try {
+    // Check database connection
+    db.prepare('SELECT 1').get();
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'unhealthy', 
+      error: 'Database connection failed' 
+    });
   }
 });
 
@@ -230,39 +291,6 @@ app.post('/api/password-reset/request', authLimiter, [
   }
 });
 
-// Validate reset token
-app.post('/api/password-reset/validate', [
-  body('token').notEmpty().withMessage('Token required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array()[0].msg });
-    }
-
-    const { token } = req.body;
-
-    const resetRecord = db.prepare(
-      'SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = ?'
-    ).get(token);
-
-    if (!resetRecord) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
-    }
-
-    if (new Date(resetRecord.expires_at) < new Date()) {
-      // Delete expired token
-      db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
-      return res.status(400).json({ error: 'Token has expired' });
-    }
-
-    res.json({ message: 'Token is valid', userId: resetRecord.user_id });
-  } catch (error) {
-    console.error('Token validation error:', error);
-    res.status(500).json({ error: 'Failed to validate token' });
-  }
-});
-
 // Reset password with token
 app.post('/api/password-reset/confirm', [
   body('token').notEmpty().withMessage('Token required'),
@@ -277,16 +305,26 @@ app.post('/api/password-reset/confirm', [
     }
 
     const { token, password } = req.body;
+    debugLog('[PASSWORD RESET CONFIRM] Received token length:', token?.length);
+    debugLog('[PASSWORD RESET CONFIRM] Token preview:', token?.substring(0, 10) + '...');
 
     const resetRecord = db.prepare(
       'SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = ?'
     ).get(token);
 
+    debugLog('[PASSWORD RESET CONFIRM] Found record:', !!resetRecord);
+    
     if (!resetRecord) {
+      // Check how many tokens exist
+      const tokenCount = db.prepare('SELECT COUNT(*) as count FROM password_reset_tokens').get();
+      debugLog('[PASSWORD RESET CONFIRM] Total tokens in DB:', tokenCount.count);
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
 
+    debugLog('[PASSWORD RESET CONFIRM] Token expires at:', resetRecord.expires_at, 'Current time:', new Date().toISOString());
+
     if (new Date(resetRecord.expires_at) < new Date()) {
+      debugLog('[PASSWORD RESET CONFIRM] Token expired');
       db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
       return res.status(400).json({ error: 'Token has expired' });
     }
@@ -295,7 +333,9 @@ app.post('/api/password-reset/confirm', [
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Update user password and delete token
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, resetRecord.user_id);
+    const updateResult = db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, resetRecord.user_id);
+    debugLog('[PASSWORD RESET CONFIRM] Update result:', updateResult.changes, 'rows updated for user:', resetRecord.user_id);
+    
     db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(resetRecord.id);
 
     res.json({ message: 'Password reset successful' });
@@ -314,7 +354,7 @@ app.get('/api/summary/:year/:month', requireAuth, (req, res) => {
     const month = parseInt(req.params.month) - 1; // JS months are 0-indexed
     const userId = req.session.userId;
 
-    console.log(`[SUMMARY] Loading for userId: ${userId}, year: ${year}, month: ${month + 1}`);
+    debugLog(`[SUMMARY] Loading for userId: ${userId}, year: ${year}, month: ${month + 1}`);
 
     // Get working days for the month
     const workingDays = getWorkingDays(year, month);
@@ -347,7 +387,7 @@ app.get('/api/summary/:year/:month', requireAuth, (req, res) => {
       .filter(holiday => holiday.getMonth() === month)
       .map(holiday => formatDate(holiday));
 
-    console.log(`[SUMMARY] Success: days=${totalWorkingDays}, leave=${annualLeaveDays.length}, office=${officeDaysCount}`);
+    debugLog(`[SUMMARY] Success: days=${totalWorkingDays}, leave=${annualLeaveDays.length}, office=${officeDaysCount}`);
 
     res.json({
       year,
@@ -444,5 +484,5 @@ app.delete('/api/annual-leave/:date', requireAuth, apiLimiter, (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  debugLog(`Server running on http://localhost:${PORT}`);
 });

@@ -53,6 +53,15 @@ function initDatabase() {
     )
   `);
 
+  // Create indexes for better query performance
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_office_days_user_date ON office_days(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_annual_leave_user_date ON annual_leave(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
+  `);
+
   console.log('Database initialized successfully');
 }
 
