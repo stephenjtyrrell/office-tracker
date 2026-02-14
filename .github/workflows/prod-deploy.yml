@@ -1,9 +1,9 @@
-name: Build and Deploy to Staging
+name: Build and Deploy to Production
 
 on:
   push:
     branches:
-      - staging
+      - main
 
 jobs:
   build-and-deploy:
@@ -31,7 +31,7 @@ jobs:
       - name: Deploy to Render
         run: |
           curl --request POST \
-            --url "${{ secrets.RENDER_DEPLOY_HOOK_URL_STAGING }}" \
+            --url "${{ secrets.RENDER_DEPLOY_HOOK_URL_PROD }}" \
             --header 'content-type: application/json'
         if: success()
 
