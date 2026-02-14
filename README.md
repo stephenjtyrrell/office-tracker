@@ -41,11 +41,12 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set your `SESSION_SECRET`:
+Edit `.env` and set your `SESSION_SECRET` and `DATABASE_URL`:
 
 ```
 PORT=3000
 SESSION_SECRET=your-secure-random-secret-key-here
+DATABASE_URL=postgres://user:password@localhost:5432/office_tracker
 NODE_ENV=development
 ```
 
@@ -111,10 +112,8 @@ If you forget your password:
    - **Environment Variables**:
      - `SESSION_SECRET` = random string
      - `NODE_ENV` = `production`
-     - `DB_PATH` = `/var/data/office-tracker.db`
-5. Add a **Persistent Disk**:
-   - **Mount Path**: `/var/data`
-   - **Size**: 1 GB (free tier)
+     - `DATABASE_URL` = your Render Postgres connection string
+5. Add a **PostgreSQL** instance in Render and copy the `DATABASE_URL`
 6. Deploy!
 
 ### Deploy to Railway
@@ -188,9 +187,9 @@ The application automatically accounts for the following Irish public holidays:
 ### Backend
 
 - **Framework**: Express.js
-- **Database**: SQLite (better-sqlite3) with indexes for optimal performance
+- **Database**: PostgreSQL with indexes for optimal performance
 - **Authentication**: bcrypt password hashing with express-session
-- **Session Management**: SQLite session store with 24-hour session expiry
+- **Session Management**: Postgres session store with 24-hour session expiry
 - **Security**: Helmet for HTTP headers, rate limiting on authentication endpoints
 - **Maintenance**: Automatic cleanup of expired password reset tokens
 
@@ -244,8 +243,8 @@ Edit `calendar.js` and add to the `getIrishPublicHolidays` function.
 ## Troubleshooting
 
 **Database not initializing?**
-- Check file permissions in the project directory
-- Delete `office-tracker.db` and restart
+- Verify `DATABASE_URL` is set and reachable
+- Check Render Postgres status and credentials
 
 **Session errors?**
 - Make sure `SESSION_SECRET` is set in `.env`
