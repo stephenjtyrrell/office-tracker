@@ -172,6 +172,14 @@ app.post('/api/logout', (req, res) => {
   res.json({ message: 'Logout successful' });
 });
 
+// Get current user
+app.get('/api/user', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(req.session.userId);
+  res.json(user);
+});
+
+// ===== Password Reset Routes =====
+
 // Utility function to generate reset token
 function generateResetToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -295,6 +303,8 @@ app.get('/api/summary/:year/:month', requireAuth, (req, res) => {
     const month = parseInt(req.params.month) - 1; // JS months are 0-indexed
     const userId = req.session.userId;
 
+    console.log(`[SUMMARY] Loading for userId: ${userId}, year: ${year}, month: ${month + 1}`);
+
     // Get working days for the month
     const workingDays = getWorkingDays(year, month);
     const totalWorkingDays = workingDays.length;
@@ -326,6 +336,8 @@ app.get('/api/summary/:year/:month', requireAuth, (req, res) => {
       .filter(holiday => holiday.getMonth() === month)
       .map(holiday => formatDate(holiday));
 
+    console.log(`[SUMMARY] Success: days=${totalWorkingDays}, leave=${annualLeaveDays.length}, office=${officeDaysCount}`);
+
     res.json({
       year,
       month: month + 1,
@@ -340,7 +352,7 @@ app.get('/api/summary/:year/:month', requireAuth, (req, res) => {
       publicHolidayDates
     });
   } catch (error) {
-    console.error('Summary error:', error);
+    console.error('[SUMMARY] Error:', error.message, error.stack);
     res.status(500).json({ error: 'Failed to get summary' });
   }
 });
