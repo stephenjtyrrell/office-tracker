@@ -426,8 +426,8 @@ app.get('/api/summary/:year/:month', requireAuth, async (req, res) => {
       requiredOfficeDays: adjustedRequiredDays,
       officeDaysCompleted: officeDaysCount,
       balance,
-      officeDates: officeDays.map(d => d.date),
-      annualLeaveDates: annualLeaveDays.map(d => d.date),
+      officeDates: officeDays.map(d => formatDate(new Date(d.date))),
+      annualLeaveDates: annualLeaveDays.map(d => formatDate(new Date(d.date))),
       publicHolidayDates
     });
   } catch (error) {
