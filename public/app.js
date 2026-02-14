@@ -6,8 +6,27 @@ let monthData = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    bindStaticEvents();
     checkAuth();
 });
+
+function bindStaticEvents() {
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const loginForm = document.getElementById('login-form-el');
+    const registerForm = document.getElementById('register-form-el');
+    const logoutButton = document.getElementById('logout-button');
+    const prevMonth = document.getElementById('prev-month');
+    const nextMonth = document.getElementById('next-month');
+
+    if (tabLogin) tabLogin.addEventListener('click', () => showTab('login'));
+    if (tabRegister) tabRegister.addEventListener('click', () => showTab('register'));
+    if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    if (registerForm) registerForm.addEventListener('submit', handleRegister);
+    if (logoutButton) logoutButton.addEventListener('click', handleLogout);
+    if (prevMonth) prevMonth.addEventListener('click', () => changeMonth(-1));
+    if (nextMonth) nextMonth.addEventListener('click', () => changeMonth(1));
+}
 
 // Auth Functions
 async function checkAuth() {
