@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Auth Section -->
+    <div id="auth-section">
+        <div class="auth-container">
+            <h1>Office Tracker</h1>
+            <p class="subtitle">Track your office attendance based on Irish working calendar</p>
+            
+            <div class="tabs">
+                <button class="tab-button active" onclick="showTab('login')">Login</button>
+                <button class="tab-button" onclick="showTab('register')">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form">
+                <h2>Login</h2>
+                <form onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <div id="login-error" class="error-message"></div>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="auth-form" style="display: none;">
+                <h2>Register</h2>
+                <form onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="register-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="register-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="register-password" required 
+                               minlength="8" 
+                               pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+                               title="Password must be at least 8 characters with uppercase, lowercase, and number">
+                        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                            Must be 8+ characters with uppercase, lowercase, and number
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <div id="register-error" class="error-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Section -->
+    <div id="app-section" style="display: none;">
+        <nav class="navbar">
+            <h1>Office Tracker</h1>
+            <div class="nav-right">
+                <span id="user-name"></span>
+                <button onclick="handleLogout()" class="btn btn-secondary">Logout</button>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- Month Selector -->
+            <div class="month-selector">
+                <button onclick="changeMonth(-1)" class="btn btn-nav">←</button>
+                <h2 id="current-month"></h2>
+                <button onclick="changeMonth(1)" class="btn btn-nav">→</button>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Working Days</h3>
+                    <p class="big-number" id="total-working-days">-</p>
+                    <p class="card-subtitle">Total this month</p>
+                </div>
+                <div class="card">
+                    <h3>Annual Leave</h3>
+                    <p class="big-number" id="annual-leave-days">-</p>
+                    <p class="card-subtitle">Days off</p>
+                </div>
+                <div class="card">
+                    <h3>Required Office Days</h3>
+                    <p class="big-number" id="required-office-days">-</p>
+                    <p class="card-subtitle">50% of working days</p>
+                </div>
+                <div class="card">
+                    <h3>Office Days Completed</h3>
+                    <p class="big-number" id="office-days-completed">-</p>
+                    <p class="card-subtitle">Days in office</p>
+                </div>
+                <div class="card card-balance" id="balance-card">
+                    <h3>Balance</h3>
+                    <p class="big-number" id="balance">-</p>
+                    <p class="card-subtitle" id="balance-text">-</p>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="instructions-box">
+                <h4>📋 How to Use</h4>
+                <p>Click on any working day to mark it as an <strong>Office Day</strong> or <strong>Annual Leave</strong>. Click marked days to remove them.</p>
+            </div>
+
+            <!-- Calendar -->
+            <div class="calendar-section">
+                <div class="calendar-header">
+                    <h3>Calendar</h3>
+                    <div class="calendar-legend-compact">
+                        <div class="legend-item">
+                            <span class="legend-color office-day"></span>
+                            <span>Office Day</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color annual-leave"></span>
+                            <span>Annual Leave</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color bank-holiday"></span>
+                            <span>Bank Holiday</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color weekend"></span>
+                            <span>Weekend</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="calendar" class="calendar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day Options Modal -->
+    <div id="day-modal" class="modal">
+        <div id="modal-backdrop" class="modal-backdrop"></div>
+        <div class="modal-content">
+            <h3>Mark Day</h3>
+            <p id="modal-date" class="modal-date"></p>
+            <div class="modal-buttons">
+                <button id="btn-office" class="btn btn-modal btn-office">
+                    <span class="btn-icon">🏢</span>
+                    Office Day
+                </button>
+                <button id="btn-annual-leave" class="btn btn-modal btn-leave">
+                    <span class="btn-icon">🏖️</span>
+                    Annual Leave
+                </button>
+                <button id="btn-cancel" class="btn btn-modal btn-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
