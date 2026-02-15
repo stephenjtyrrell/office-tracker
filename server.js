@@ -113,6 +113,9 @@ app.use(session({
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Apply API rate limiting to all API routes
+app.use('/api', apiLimiter);
+
 // Auth middleware
 function requireAuth(req, res, next) {
   if (req.session.userId) {
@@ -437,7 +440,7 @@ app.get('/api/summary/:year/:month', requireAuth, async (req, res) => {
 });
 
 // Log office day
-app.post('/api/office-day', requireAuth, apiLimiter, async (req, res) => {
+app.post('/api/office-day', requireAuth, async (req, res) => {
   try {
     const { date } = req.body;
     const userId = req.session.userId;
@@ -458,7 +461,7 @@ app.post('/api/office-day', requireAuth, apiLimiter, async (req, res) => {
 });
 
 // Remove office day
-app.delete('/api/office-day/:date', requireAuth, apiLimiter, async (req, res) => {
+app.delete('/api/office-day/:date', requireAuth, async (req, res) => {
   try {
     const { date } = req.params;
     const userId = req.session.userId;
@@ -478,7 +481,7 @@ app.delete('/api/office-day/:date', requireAuth, apiLimiter, async (req, res) =>
 // ===== Annual Leave Routes =====
 
 // Add annual leave
-app.post('/api/annual-leave', requireAuth, apiLimiter, async (req, res) => {
+app.post('/api/annual-leave', requireAuth, async (req, res) => {
   try {
     const { date } = req.body;
     const userId = req.session.userId;
@@ -499,7 +502,7 @@ app.post('/api/annual-leave', requireAuth, apiLimiter, async (req, res) => {
 });
 
 // Remove annual leave
-app.delete('/api/annual-leave/:date', requireAuth, apiLimiter, async (req, res) => {
+app.delete('/api/annual-leave/:date', requireAuth, async (req, res) => {
   try {
     const { date } = req.params;
     const userId = req.session.userId;
