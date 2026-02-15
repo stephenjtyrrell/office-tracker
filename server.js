@@ -526,7 +526,13 @@ async function startServer() {
   });
 }
 
-startServer().catch(error => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+// Only start server if not in test environment and this is the main module
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+  startServer().catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}
+
+// Export for testing
+module.exports = app;

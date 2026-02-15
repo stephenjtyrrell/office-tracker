@@ -1,4 +1,4 @@
-name: Deploy on Merge
+name: CD - Deploy on Merge
 
 on:
   pull_request:
@@ -9,32 +9,112 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  deploy-production:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+  check-deployment-secrets:
+    name: Validate Deployment Secrets
     runs-on: ubuntu-latest
+    outputs:
+      prod-secret-exists: ${{ steps.check-prod.outputs.exists }}
+      staging-secret-exists: ${{ steps.check-staging.outputs.exists }}
+    steps:
+      - name: Check production secret exists
+        id: check-prod
+        env:
+          SECRET: ${{ secrets.RENDER_DEPLOY_HOOK_URL_PROD }}
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Check staging secret exists
+        id: check-staging
+        env:
+          SECRET: ${{ secrets.RENDER_DEPLOY_HOOK_URL_STAGING }}
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+          fi
 
+  deploy-production:
+    name: Deploy to Production
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    needs: check-deployment-secrets
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Deploy to Render
+      
+      - name: Validate production secret is configured
+        if: needs.check-deployment-secrets.outputs.prod-secret-exists == 'false'
+        run: |
+          echo "❌ Error: RENDER_DEPLOY_HOOK_URL_PROD secret not configured"
+          echo "Please set the RENDER_DEPLOY_HOOK_URL_PROD secret in repository settings"
+          exit 1
+      
+      - name: Deploy to Render Production
         run: |
           curl --request POST \
             --url "${{ secrets.RENDER_DEPLOY_HOOK_URL_PROD }}" \
-            --header 'content-type: application/json'
+            --header 'content-type: application/json' \
+            --fail \
+            --show-error \
+            --silent \
+            --max-time 10
+      
+      - name: Log deployment success
+        if: success()
+        run: echo "✅ Successfully deployed to production (main branch)"
+      
+      - name: Log deployment failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed"
+          exit 1
 
   deploy-staging:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'staging'
+    name: Deploy to Staging
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'staging'
     runs-on: ubuntu-latest
-
+    needs: check-deployment-secrets
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Deploy to Render
+      
+      - name: Validate staging secret is configured
+        if: needs.check-deployment-secrets.outputs.staging-secret-exists == 'false'
+        run: |
+          echo "❌ Error: RENDER_DEPLOY_HOOK_URL_STAGING secret not configured"
+          echo "Please set the RENDER_DEPLOY_HOOK_URL_STAGING secret in repository settings"
+          exit 1
+      
+      - name: Deploy to Render Staging
         run: |
           curl --request POST \
             --url "${{ secrets.RENDER_DEPLOY_HOOK_URL_STAGING }}" \
-            --header 'content-type: application/json'
+            --header 'content-type: application/json' \
+            --fail \
+            --show-error \
+            --silent \
+            --max-time 10
+      
+      - name: Log deployment success
+        if: success()
+        run: echo "✅ Successfully deployed to staging branch"
+      
+      - name: Log deployment failure
+        if: failure()
+        run: |
+          echo "❌ Staging deployment failed"
+          exit 1

@@ -17,22 +17,22 @@ function getEasterSunday(year) {
   const m = Math.floor((a + 11 * h + 22 * l) / 451);
   const month = Math.floor((h + l - 7 * m + 114) / 31);
   const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function getIrishPublicHolidays(year) {
   const holidays = [];
 
   // Fixed holidays
-  holidays.push(new Date(year, 0, 1));   // New Year's Day
-  holidays.push(new Date(year, 2, 17));  // St. Patrick's Day
-  holidays.push(new Date(year, 11, 25)); // Christmas Day
-  holidays.push(new Date(year, 11, 26)); // St. Stephen's Day
+  holidays.push(new Date(Date.UTC(year, 0, 1)));   // New Year's Day
+  holidays.push(new Date(Date.UTC(year, 2, 17)));  // St. Patrick's Day
+  holidays.push(new Date(Date.UTC(year, 11, 25))); // Christmas Day
+  holidays.push(new Date(Date.UTC(year, 11, 26))); // St. Stephen's Day
 
   // Easter-based holidays
   const easter = getEasterSunday(year);
   const easterMonday = new Date(easter);
-  easterMonday.setDate(easter.getDate() + 1);
+  easterMonday.setUTCDate(easter.getUTCDate() + 1);
   holidays.push(easterMonday); // Easter Monday
 
   // First Monday in February, May, June, August, October
@@ -47,16 +47,16 @@ function getIrishPublicHolidays(year) {
 
 function getNthWeekdayOfMonth(year, month, weekday, n) {
   // weekday: 0 = Sunday, 1 = Monday, etc.
-  const firstDay = new Date(year, month, 1);
-  const firstWeekday = firstDay.getDay();
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const firstWeekday = firstDay.getUTCDay();
   let diff = weekday - firstWeekday;
   if (diff < 0) diff += 7;
   const date = 1 + diff + (n - 1) * 7;
-  return new Date(year, month, date);
+  return new Date(Date.UTC(year, month, date));
 }
 
 function isWeekend(date) {
-  const day = date.getDay();
+  const day = date.getUTCDay();
   return day === 0 || day === 6; // Sunday or Saturday
 }
 
@@ -69,10 +69,10 @@ function getWorkingDays(year, month) {
   const holidays = getIrishPublicHolidays(year);
   const workingDays = [];
   
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
   
-  for (let date = new Date(firstDay); date <= lastDay; date.setDate(date.getDate() + 1)) {
+  for (let date = new Date(firstDay); date <= lastDay; date.setUTCDate(date.getUTCDate() + 1)) {
     const currentDate = new Date(date);
     if (!isWeekend(currentDate) && !isPublicHoliday(currentDate, holidays)) {
       workingDays.push(new Date(currentDate));
