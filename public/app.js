@@ -80,6 +80,7 @@ async function checkAuth() {
             currentUser = await response.json();
             showApp();
             loadMonthData();
+            initializeAdminView();
         } else {
             showAuth();
         }
@@ -537,4 +538,148 @@ function formatDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+// ===== Admin Users Functions =====
+
+// Check if we're in staging and show admin button
+async function initializeAdminView() {
+    try {
+        const response = await fetch('/api/admin/users');
+        if (response.ok) {
+            // If we can access admin endpoint, show the admin button
+            const adminButtons = document.getElementById('admin-nav-buttons');
+            if (adminButtons) {
+                adminButtons.classList.add('show');
+                setupAdminViewToggle();
+            }
+        }
+    } catch (error) {
+        // Not in staging or endpoint not available, hide admin features
+        console.log('Admin features not available');
+    }
+}
+
+function setupAdminViewToggle() {
+    const toggleButton = document.getElementById('toggle-admin-view');
+    const backButton = document.getElementById('back-to-calendar');
+    const calendarView = document.querySelector('.calendar-section').parentElement;
+    const adminSection = document.getElementById('admin-users-section');
+
+    if (toggleButton) {
+        toggleButton.addEventListener('click', async () => {
+            const isShowingAdmin = adminSection.style.display !== 'none';
+            if (!isShowingAdmin) {
+                await loadAndDisplayUsers();
+            }
+            toggleViews();
+        });
+    }
+
+    if (backButton) {
+        backButton.addEventListener('click', toggleViews);
+    }
+}
+
+function toggleViews() {
+    const monthSelector = document.querySelector('.month-selector');
+    const summaryCards = document.querySelector('.summary-cards');
+    const instructions = document.querySelector('.instructions-box');
+    const calendarSection = document.querySelector('.calendar-section');
+    const adminSection = document.getElementById('admin-users-section');
+
+    const showAdmin = adminSection.style.display === 'none';
+
+    monthSelector.style.display = showAdmin ? 'none' : 'flex';
+    summaryCards.style.display = showAdmin ? 'none' : 'grid';
+    instructions.style.display = showAdmin ? 'none' : 'block';
+    calendarSection.style.display = showAdmin ? 'none' : 'block';
+    adminSection.style.display = showAdmin ? 'block' : 'none';
+
+    const toggleButton = document.getElementById('toggle-admin-view');
+    if (toggleButton) {
+        toggleButton.textContent = showAdmin ? 'Back to Calendar' : 'View Users';
+    }
+}
+
+async function loadAndDisplayUsers() {
+    const usersList = document.getElementById('users-list');
+    const loadingDiv = document.getElementById('admin-loading');
+    const errorDiv = document.getElementById('admin-error');
+
+    // Show loading state
+    usersList.innerHTML = '';
+    loadingDiv.style.display = 'block';
+    errorDiv.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) {
+            throw new Error('Failed to fetch users');
+        }
+
+        const data = await response.json();
+        loadingDiv.style.display = 'none';
+
+        // Update total users count
+        document.getElementById('total-users-count').textContent = data.totalUsers;
+
+        // Display users
+        if (data.users && data.users.length > 0) {
+            usersList.innerHTML = data.users.map(user => createUserCard(user)).join('');
+        } else {
+            usersList.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999; padding: 40px;">No users registered yet.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+        loadingDiv.style.display = 'none';
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = `Error loading users: ${error.message}`;
+    }
+}
+
+function createUserCard(user) {
+    const createdDate = new Date(user.created_at);
+    const formattedDate = createdDate.toLocaleDateString('en-IE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+    const formattedTime = createdDate.toLocaleTimeString('en-IE', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    return `
+        <div class="user-card">
+            <div class="user-card-header">
+                <p class="user-name">${escapeHtml(user.name)}</p>
+                <p class="user-email">${escapeHtml(user.email)}</p>
+            </div>
+            <div class="user-meta">
+                <div class="user-meta-item">
+                    <span class="user-meta-label">ID:</span>
+                    <span class="user-meta-value">#${user.id}</span>
+                </div>
+                <div class="user-meta-item">
+                    <span class="user-meta-label">Joined:</span>
+                    <span class="user-meta-value">${formattedDate}</span>
+                </div>
+                <div class="user-meta-item">
+                    <span class="user-meta-label">Time:</span>
+                    <span class="user-meta-value">${formattedTime}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
 }
