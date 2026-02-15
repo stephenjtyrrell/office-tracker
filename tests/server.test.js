@@ -218,6 +218,9 @@ describe('Server API Endpoints', () => {
           if (query.includes('SELECT id FROM users WHERE email')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+            return Promise.resolve({ rowCount: 1 });
+          }
           if (query.includes('INSERT INTO password_reset_tokens')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
@@ -269,7 +272,7 @@ describe('Server API Endpoints', () => {
           if (query.includes('UPDATE users SET password')) {
             return Promise.resolve({ rowCount: 1 });
           }
-          if (query.includes('DELETE FROM password_reset_tokens')) {
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
             return Promise.resolve({ rowCount: 1 });
           }
         });
@@ -528,6 +531,9 @@ describe('Server API Endpoints', () => {
           if (query.includes('SELECT id FROM users WHERE email')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+            return Promise.resolve({ rowCount: 1 });
+          }
           if (query.includes('INSERT INTO password_reset_tokens')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
@@ -579,7 +585,7 @@ describe('Server API Endpoints', () => {
           if (query.includes('UPDATE users SET password')) {
             return Promise.resolve({ rowCount: 1 });
           }
-          if (query.includes('DELETE FROM password_reset_tokens')) {
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
             return Promise.resolve({ rowCount: 1 });
           }
         });
