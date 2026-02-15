@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const PgSession = require('connect-pg-simple')(session);
+const csurf = require('csurf');
 const { pool, initDatabase } = require('./database');
 const { getWorkingDays, formatDate, getIrishPublicHolidays } = require('./calendar');
 
@@ -109,6 +110,15 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
+
+// CSRF protection
+const csrfProtection = csurf();
+app.use(csrfProtection);
+
+// Endpoint to retrieve CSRF token for clients
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
