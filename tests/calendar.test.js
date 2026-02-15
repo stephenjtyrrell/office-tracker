@@ -78,13 +78,13 @@ describe('Calendar Module', () => {
     it('should include Easter Monday', () => {
       const holidays = getIrishPublicHolidays(2025);
       // Easter 2025 is April 20, so Easter Monday is April 21
-      const easterMonday = new Date(2025, 3, 21);
+      const easterMonday = new Date(Date.UTC(2025, 3, 21));
       expect(holidays.some(h => formatDate(h) === formatDate(easterMonday))).toBe(true);
     });
 
     it('should include bank holidays (first Monday of marked months)', () => {
       const holidays = getIrishPublicHolidays(2025);
-      const mayDay = new Date(2025, 4, 5); // First Monday in May
+      const mayDay = new Date(Date.UTC(2025, 4, 5)); // First Monday in May
       expect(holidays.some(h => formatDate(h) === formatDate(mayDay))).toBe(true);
     });
 
@@ -220,13 +220,13 @@ describe('Calendar Module', () => {
       
       // Should have bank holidays (first Monday of each month)
       expect(holidayStrings).toContain('2025-02-03'); // Feb Bank Holiday (first Monday)
-      expect(holidayStrings).toContain('2025-05-04'); // May Day (first Monday)
-      expect(holidayStrings).toContain('2025-06-01'); // June Bank Holiday (first Monday)
-      expect(holidayStrings).toContain('2025-08-03'); // August Bank Holiday (first Monday)
-      expect(holidayStrings).toContain('2025-10-05'); // October Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-05-05'); // May Day (first Monday)
+      expect(holidayStrings).toContain('2025-06-02'); // June Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-08-04'); // August Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-10-06'); // October Bank Holiday (first Monday)
       
       // Should have Easter Monday (April 2025)
-      expect(holidayStrings.some(d => d.startsWith('2025-04'))).toBe(true);
+      expect(holidayStrings).toContain('2025-04-21'); // Easter Monday
     });
   });
 });
