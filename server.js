@@ -516,6 +516,33 @@ app.delete('/api/annual-leave/:date', requireAuth, apiLimiter, async (req, res) 
   }
 });
 
+// ===== Admin Routes (Staging Only) =====
+
+// Middleware to restrict admin routes to staging environment
+function requireStagingEnv(req, res, next) {
+  if (process.env.NODE_ENV !== 'staging') {
+    return res.status(403).json({ error: 'Admin routes only available in staging environment' });
+  }
+  next();
+}
+
+// Get all registered users (staging only)
+app.get('/api/admin/users', requireStagingEnv, async (req, res) => {
+  try {
+    debugLog('[ADMIN] Fetching all registered users');
+    const result = await pool.query(
+      'SELECT id, email, name, created_at FROM users ORDER BY created_at DESC'
+    );
+    res.json({
+      totalUsers: result.rows.length,
+      users: result.rows
+    });
+  } catch (error) {
+    console.error('Admin users fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
 // Start server
 async function startServer() {
   await initDatabase();
