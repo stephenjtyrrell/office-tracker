@@ -218,12 +218,12 @@ describe('Calendar Module', () => {
       expect(holidayStrings).toContain('2025-12-25'); // Christmas
       expect(holidayStrings).toContain('2025-12-26'); // St Stephen's
       
-      // Should have bank holidays
-      expect(holidayStrings).toContain('2025-02-03'); // Feb Bank Holiday
-      expect(holidayStrings).toContain('2025-05-04'); // May Day
-      expect(holidayStrings).toContain('2025-06-01'); // June Bank Holiday
-      expect(holidayStrings).toContain('2025-08-03'); // August Bank Holiday
-      expect(holidayStrings).toContain('2025-10-05'); // October Bank Holiday
+      // Should have bank holidays (first Monday of each month)
+      expect(holidayStrings).toContain('2025-02-03'); // Feb Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-05-04'); // May Day (first Monday)
+      expect(holidayStrings).toContain('2025-06-01'); // June Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-08-03'); // August Bank Holiday (first Monday)
+      expect(holidayStrings).toContain('2025-10-05'); // October Bank Holiday (first Monday)
       
       // Should have Easter Monday (April 2025)
       expect(holidayStrings.some(d => d.startsWith('2025-04'))).toBe(true);
