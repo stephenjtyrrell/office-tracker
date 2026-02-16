@@ -406,6 +406,11 @@ function renderCalendar() {
         dayEl.className = 'calendar-day';
         dayEl.textContent = day;
 
+        const today = new Date();
+        const isToday = date.getDate() === today.getDate() && 
+                       date.getMonth() === today.getMonth() && 
+                       date.getFullYear() === today.getFullYear();
+        
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isOfficeDay = monthData.officeDates.includes(dateStr);
         const isAnnualLeave = monthData.annualLeaveDates.includes(dateStr);
@@ -429,6 +434,10 @@ function renderCalendar() {
             dayEl.classList.add('working-day');
             dayEl.title = 'Click to mark as Office Day or Annual Leave';
             dayEl.onclick = () => showDayOptions(dateStr);
+        }
+
+        if (isToday) {
+            dayEl.classList.add('today');
         }
 
         calendar.appendChild(dayEl);
