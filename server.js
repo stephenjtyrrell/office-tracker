@@ -519,26 +519,25 @@ app.post('/api/confirm-planned-days', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Dates must be an array' });
     }
 
+    // Filter valid dates
+    const validDates = dates.filter(date => isValidDate(date));
+    
+    if (validDates.length === 0) {
+      return res.status(400).json({ error: 'No valid dates provided' });
+    }
+
     if (confirmed) {
-      // Set is_planned to false (confirm the days)
-      for (const date of dates) {
-        if (isValidDate(date)) {
-          await pool.query(
-            'UPDATE office_days SET is_planned = false WHERE user_id = $1 AND date = $2',
-            [userId, date]
-          );
-        }
-      }
+      // Batch update: Set is_planned to false (confirm the days)
+      await pool.query(
+        'UPDATE office_days SET is_planned = false WHERE user_id = $1 AND date = ANY($2)',
+        [userId, validDates]
+      );
     } else {
-      // Delete the planned days
-      for (const date of dates) {
-        if (isValidDate(date)) {
-          await pool.query(
-            'DELETE FROM office_days WHERE user_id = $1 AND date = $2',
-            [userId, date]
-          );
-        }
-      }
+      // Batch delete: Remove the planned days
+      await pool.query(
+        'DELETE FROM office_days WHERE user_id = $1 AND date = ANY($2)',
+        [userId, validDates]
+      );
     }
 
     res.json({ message: confirmed ? 'Days confirmed' : 'Days removed' });
