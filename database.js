@@ -27,9 +27,23 @@ async function initDatabase() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       date DATE NOT NULL,
+      is_planned BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(user_id, date)
     )
+  `);
+
+  // Add is_planned column if it doesn't exist (migration)
+  await pool.query(`
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='office_days' AND column_name='is_planned'
+      ) THEN
+        ALTER TABLE office_days ADD COLUMN is_planned BOOLEAN DEFAULT false;
+      END IF;
+    END $$;
   `);
 
   await pool.query(`

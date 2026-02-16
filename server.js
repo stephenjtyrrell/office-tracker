@@ -399,17 +399,21 @@ app.get('/api/summary/:year/:month', requireAuth, async (req, res) => {
 
     // Get office days for this month
     const officeDaysResult = await pool.query(
-      'SELECT date FROM office_days WHERE user_id = $1 AND date >= $2 AND date < $3 ORDER BY date',
+      'SELECT date, is_planned FROM office_days WHERE user_id = $1 AND date >= $2 AND date < $3 ORDER BY date',
       [userId, monthStart, nextMonthStart]
     );
     const officeDays = officeDaysResult.rows;
+
+    // Separate confirmed and planned days
+    const confirmedDays = officeDays.filter(d => !d.is_planned);
+    const plannedDays = officeDays.filter(d => d.is_planned);
 
     // Calculate working days excluding annual leave
     const annualLeaveDates = new Set(annualLeaveDays.map(d => d.date));
     const actualWorkingDays = totalWorkingDays - annualLeaveDays.length;
     const adjustedRequiredDays = Math.ceil(actualWorkingDays * 0.5);
 
-    const officeDaysCount = officeDays.length;
+    const officeDaysCount = confirmedDays.length; // Only count confirmed days
     const balance = officeDaysCount - adjustedRequiredDays;
 
     // Get public holidays for this month
@@ -429,7 +433,8 @@ app.get('/api/summary/:year/:month', requireAuth, async (req, res) => {
       requiredOfficeDays: adjustedRequiredDays,
       officeDaysCompleted: officeDaysCount,
       balance,
-      officeDates: officeDays.map(d => formatDate(new Date(d.date))),
+      officeDates: confirmedDays.map(d => formatDate(new Date(d.date))),
+      plannedDates: plannedDays.map(d => formatDate(new Date(d.date))),
       annualLeaveDates: annualLeaveDays.map(d => formatDate(new Date(d.date))),
       publicHolidayDates
     });
@@ -449,11 +454,17 @@ app.post('/api/office-day', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format' });
     }
 
+    // Determine if this is a planned day (future) or confirmed day (past/today)
+    const selectedDate = new Date(date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isPlanned = selectedDate > today;
+
     await pool.query(
-      'INSERT INTO office_days (user_id, date) VALUES ($1, $2) ON CONFLICT (user_id, date) DO NOTHING',
-      [userId, date]
+      'INSERT INTO office_days (user_id, date, is_planned) VALUES ($1, $2, $3) ON CONFLICT (user_id, date) DO UPDATE SET is_planned = $3',
+      [userId, date, isPlanned]
     );
-    res.json({ message: 'Office day logged' });
+    res.json({ message: isPlanned ? 'Office day planned' : 'Office day logged' });
   } catch (error) {
     console.error('Office day error:', error);
     res.status(500).json({ error: 'Failed to log office day' });
@@ -475,6 +486,65 @@ app.delete('/api/office-day/:date', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Delete office day error:', error);
     res.status(500).json({ error: 'Failed to remove office day' });
+  }
+});
+
+// Get past planned days that need confirmation
+app.get('/api/past-planned-days', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const today = new Date().toISOString().split('T')[0];
+
+    const result = await pool.query(
+      'SELECT date FROM office_days WHERE user_id = $1 AND is_planned = true AND date < $2 ORDER BY date',
+      [userId, today]
+    );
+
+    res.json({ 
+      pastPlannedDays: result.rows.map(d => formatDate(new Date(d.date)))
+    });
+  } catch (error) {
+    console.error('Get past planned days error:', error);
+    res.status(500).json({ error: 'Failed to get past planned days' });
+  }
+});
+
+// Confirm or reject past planned days
+app.post('/api/confirm-planned-days', requireAuth, async (req, res) => {
+  try {
+    const { dates, confirmed } = req.body;
+    const userId = req.session.userId;
+
+    if (!Array.isArray(dates)) {
+      return res.status(400).json({ error: 'Dates must be an array' });
+    }
+
+    if (confirmed) {
+      // Set is_planned to false (confirm the days)
+      for (const date of dates) {
+        if (isValidDate(date)) {
+          await pool.query(
+            'UPDATE office_days SET is_planned = false WHERE user_id = $1 AND date = $2',
+            [userId, date]
+          );
+        }
+      }
+    } else {
+      // Delete the planned days
+      for (const date of dates) {
+        if (isValidDate(date)) {
+          await pool.query(
+            'DELETE FROM office_days WHERE user_id = $1 AND date = $2',
+            [userId, date]
+          );
+        }
+      }
+    }
+
+    res.json({ message: confirmed ? 'Days confirmed' : 'Days removed' });
+  } catch (error) {
+    console.error('Confirm planned days error:', error);
+    res.status(500).json({ error: 'Failed to confirm planned days' });
   }
 });
 

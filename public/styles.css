@@ -409,6 +409,13 @@ body {
     border-color: #667eea;
 }
 
+.calendar-day.planned-day {
+    background: rgba(102, 126, 234, 0.3);
+    color: #667eea;
+    border-color: #667eea;
+    font-weight: 700;
+}
+
 .calendar-day.annual-leave {
     background: #f39c12;
     color: white;
@@ -463,6 +470,11 @@ body {
 
 .legend-color.office-day {
     background: #667eea;
+    border-color: #667eea;
+}
+
+.legend-color.planned-day {
+    background: rgba(102, 126, 234, 0.3);
     border-color: #667eea;
 }
 
