@@ -399,6 +399,8 @@ function renderCalendar() {
     }
 
     // Add days of month
+    const today = new Date();
+    const todayStr = formatDate(today);
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(currentYear, currentMonth, day);
         const dateStr = formatDate(date);
@@ -406,6 +408,7 @@ function renderCalendar() {
         dayEl.className = 'calendar-day';
         dayEl.textContent = day;
 
+        const isToday = dateStr === todayStr;
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isOfficeDay = monthData.officeDates.includes(dateStr);
         const isAnnualLeave = monthData.annualLeaveDates.includes(dateStr);
@@ -429,6 +432,10 @@ function renderCalendar() {
             dayEl.classList.add('working-day');
             dayEl.title = 'Click to mark as Office Day or Annual Leave';
             dayEl.onclick = () => showDayOptions(dateStr);
+        }
+
+        if (isToday) {
+            dayEl.classList.add('today');
         }
 
         calendar.appendChild(dayEl);
