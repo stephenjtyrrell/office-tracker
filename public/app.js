@@ -399,6 +399,8 @@ function renderCalendar() {
     }
 
     // Add days of month
+    const today = new Date();
+    const todayStr = formatDate(today);
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(currentYear, currentMonth, day);
         const dateStr = formatDate(date);
@@ -406,11 +408,7 @@ function renderCalendar() {
         dayEl.className = 'calendar-day';
         dayEl.textContent = day;
 
-        const today = new Date();
-        const isToday = date.getDate() === today.getDate() && 
-                       date.getMonth() === today.getMonth() && 
-                       date.getFullYear() === today.getFullYear();
-        
+        const isToday = dateStr === todayStr;
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isOfficeDay = monthData.officeDates.includes(dateStr);
         const isAnnualLeave = monthData.annualLeaveDates.includes(dateStr);
