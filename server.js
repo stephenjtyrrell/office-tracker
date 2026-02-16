@@ -519,6 +519,11 @@ app.post('/api/confirm-planned-days', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Dates must be an array' });
     }
 
+    // Validate confirmed is a boolean
+    if (typeof confirmed !== 'boolean') {
+      return res.status(400).json({ error: 'Confirmed must be a boolean value' });
+    }
+
     // Filter valid dates
     const validDates = dates.filter(date => isValidDate(date));
     
@@ -526,7 +531,7 @@ app.post('/api/confirm-planned-days', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'No valid dates provided' });
     }
 
-    if (confirmed) {
+    if (confirmed === true) {
       // Batch update: Set is_planned to false (confirm the days)
       await pool.query(
         'UPDATE office_days SET is_planned = false WHERE user_id = $1 AND date = ANY($2)',
