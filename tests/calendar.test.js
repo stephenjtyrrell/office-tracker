@@ -75,6 +75,13 @@ describe('Calendar Module', () => {
       expect(holidays.some(h => formatDate(h) === formatDate(stephensDay))).toBe(true);
     });
 
+    it('should include Good Friday', () => {
+      const holidays = getIrishPublicHolidays(2025);
+      // Easter 2025 is April 20, so Good Friday is April 18
+      const goodFriday = new Date(Date.UTC(2025, 3, 18));
+      expect(holidays.some(h => formatDate(h) === formatDate(goodFriday))).toBe(true);
+    });
+
     it('should include Easter Monday', () => {
       const holidays = getIrishPublicHolidays(2025);
       // Easter 2025 is April 20, so Easter Monday is April 21
@@ -98,9 +105,9 @@ describe('Calendar Module', () => {
     it('should have consistent number of holidays each year', () => {
       const holidays2024 = getIrishPublicHolidays(2024);
       const holidays2025 = getIrishPublicHolidays(2025);
-      // Should have 10 holidays each year (fixed + Easter-based)
-      expect(holidays2024.length).toBe(10);
-      expect(holidays2025.length).toBe(10);
+      // Should have 11 holidays each year (fixed + Easter-based)
+      expect(holidays2024.length).toBe(11);
+      expect(holidays2025.length).toBe(11);
     });
   });
 
@@ -196,12 +203,12 @@ describe('Calendar Module', () => {
       const holidays2025 = getIrishPublicHolidays(2025);
 
       // 2024 holidays should include an Easter-related date
-      expect(holidays2024.length).toBe(10);
+      expect(holidays2024.length).toBe(11);
       
       // 2025 holidays should include April 20 (Easter Sunday) or April 21 (Easter Monday)
-      expect(holidays2025.length).toBe(10);
+      expect(holidays2025.length).toBe(11);
       
-      // Verify we have exactly 10 holidays each year (fixed + moveable)
+      // Verify we have exactly 11 holidays each year (fixed + moveable)
       const allHolidaysAreDate = holidays2024.every(h => h instanceof Date);
       expect(allHolidaysAreDate).toBe(true);
     });
@@ -225,7 +232,8 @@ describe('Calendar Module', () => {
       expect(holidayStrings).toContain('2025-08-04'); // August Bank Holiday (first Monday)
       expect(holidayStrings).toContain('2025-10-06'); // October Bank Holiday (first Monday)
       
-      // Should have Easter Monday (April 2025)
+      // Should have Easter-based holidays (April 2025)
+      expect(holidayStrings).toContain('2025-04-18'); // Good Friday
       expect(holidayStrings).toContain('2025-04-21'); // Easter Monday
     });
   });

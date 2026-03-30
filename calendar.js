@@ -31,6 +31,9 @@ function getIrishPublicHolidays(year) {
 
   // Easter-based holidays
   const easter = getEasterSunday(year);
+  const goodFriday = new Date(easter);
+  goodFriday.setUTCDate(easter.getUTCDate() - 2);
+  holidays.push(goodFriday); // Good Friday
   const easterMonday = new Date(easter);
   easterMonday.setUTCDate(easter.getUTCDate() + 1);
   holidays.push(easterMonday); // Easter Monday
