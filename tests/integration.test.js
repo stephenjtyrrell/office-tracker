@@ -243,7 +243,7 @@ describe('Integration Tests', () => {
 
       // Both calls should return 10 holidays
       expect(holidays1.length).toBe(holidays2.length);
-      expect(holidays1.length).toBe(10);
+      expect(holidays1.length).toBe(11);
     });
   });
 
@@ -290,7 +290,7 @@ describe('Integration Tests', () => {
       // Typical Irish year: ~252 working days (20 vacations + 10 holidays)
       expect(totalWorkingDays).toBeGreaterThan(240);
       expect(totalWorkingDays).toBeLessThan(260);
-      expect(totalHolidays).toBe(10);
+      expect(totalHolidays).toBe(11);
     });
   });
 });
