@@ -218,6 +218,9 @@ describe('Server API Endpoints', () => {
           if (query.includes('SELECT id FROM users WHERE email')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+            return Promise.resolve({ rowCount: 1 });
+          }
           if (query.includes('INSERT INTO password_reset_tokens')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
@@ -229,6 +232,72 @@ describe('Server API Endpoints', () => {
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('message');
+      });
+
+      it('should store a hashed reset token and clear existing tokens', async () => {
+        const calls = [];
+
+        pool.query.mockImplementation((query, params) => {
+          calls.push({ query, params });
+          if (query.includes('SELECT id FROM users WHERE email')) {
+            return Promise.resolve({ rows: [{ id: 1 }] });
+          }
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+            return Promise.resolve({ rowCount: 1 });
+          }
+          if (query.includes('INSERT INTO password_reset_tokens')) {
+            return Promise.resolve({ rows: [{ id: 1 }] });
+          }
+        });
+
+        const response = await request(app)
+          .post('/api/password-reset/request')
+          .send({ email: 'user@example.com' });
+
+        expect(response.status).toBe(200);
+
+        const deleteIndex = calls.findIndex(call =>
+          call.query.includes('DELETE FROM password_reset_tokens WHERE user_id')
+        );
+        const insertIndex = calls.findIndex(call =>
+          call.query.includes('INSERT INTO password_reset_tokens')
+        );
+
+        expect(deleteIndex).toBeGreaterThan(-1);
+        expect(insertIndex).toBeGreaterThan(deleteIndex);
+
+        const insertCall = calls[insertIndex];
+        const tokenHash = insertCall.params[1];
+        expect(tokenHash).toMatch(/^[a-f0-9]{64}$/);
+      });
+
+      it('should not return token in production', async () => {
+        const originalEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = 'production';
+
+        try {
+          pool.query.mockImplementation((query) => {
+            if (query.includes('SELECT id FROM users WHERE email')) {
+              return Promise.resolve({ rows: [{ id: 1 }] });
+            }
+            if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+              return Promise.resolve({ rowCount: 1 });
+            }
+            if (query.includes('INSERT INTO password_reset_tokens')) {
+              return Promise.resolve({ rows: [{ id: 1 }] });
+            }
+          });
+
+          const response = await request(app)
+            .post('/api/password-reset/request')
+            .send({ email: 'user@example.com' });
+
+          expect(response.status).toBe(200);
+          expect(response.body.token).toBeUndefined();
+          expect(response.body.message).toContain('If email exists');
+        } finally {
+          process.env.NODE_ENV = originalEnv;
+        }
       });
 
       it('should not reveal if email exists (security)', async () => {
@@ -255,9 +324,12 @@ describe('Server API Endpoints', () => {
       it('should reset password with valid token', async () => {
         const resetToken = crypto.randomBytes(32).toString('hex');
         const futureTime = new Date(Date.now() + 3600000).toISOString();
+        const expectedHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        let selectParams = null;
 
-        pool.query.mockImplementation((query) => {
+        pool.query.mockImplementation((query, params) => {
           if (query.includes('SELECT id, user_id, expires_at FROM password_reset_tokens')) {
+            selectParams = params;
             return Promise.resolve({
               rows: [{
                 id: 1,
@@ -269,7 +341,7 @@ describe('Server API Endpoints', () => {
           if (query.includes('UPDATE users SET password')) {
             return Promise.resolve({ rowCount: 1 });
           }
-          if (query.includes('DELETE FROM password_reset_tokens')) {
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
             return Promise.resolve({ rowCount: 1 });
           }
         });
@@ -283,6 +355,7 @@ describe('Server API Endpoints', () => {
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('message', 'Password reset successful');
+        expect(selectParams).toEqual([expectedHash]);
       });
 
       it('should reject expired token', async () => {
@@ -528,6 +601,9 @@ describe('Server API Endpoints', () => {
           if (query.includes('SELECT id FROM users WHERE email')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
+            return Promise.resolve({ rowCount: 1 });
+          }
           if (query.includes('INSERT INTO password_reset_tokens')) {
             return Promise.resolve({ rows: [{ id: 1 }] });
           }
@@ -579,7 +655,7 @@ describe('Server API Endpoints', () => {
           if (query.includes('UPDATE users SET password')) {
             return Promise.resolve({ rowCount: 1 });
           }
-          if (query.includes('DELETE FROM password_reset_tokens')) {
+          if (query.includes('DELETE FROM password_reset_tokens WHERE user_id')) {
             return Promise.resolve({ rowCount: 1 });
           }
         });

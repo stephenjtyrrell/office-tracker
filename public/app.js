@@ -3,14 +3,47 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
 let currentUser = null;
 let monthData = null;
+let csrfToken = null;
+let csrfTokenPromise = null;
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     bindStaticEvents();
+    await fetchCSRFToken();
     loadVersion();
     checkAuth();
     setupPasswordToggles();
 });
+
+// Fetch CSRF token on app load
+async function fetchCSRFToken() {
+    if (csrfTokenPromise) {
+        return csrfTokenPromise;
+    }
+    
+    csrfTokenPromise = (async () => {
+        try {
+            const response = await fetch('/api/csrf-token');
+            const data = await response.json();
+            csrfToken = data.csrfToken;
+            return csrfToken;
+        } catch (error) {
+            console.error('Failed to fetch CSRF token:', error);
+            // Retry after 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            csrfTokenPromise = null;
+            return fetchCSRFToken();
+        }
+    })();
+    
+    return csrfTokenPromise;
+}
+
+async function refreshCSRFToken() {
+    csrfToken = null;
+    csrfTokenPromise = null;
+    return fetchCSRFToken();
+}
 
 function setupPasswordToggles() {
     document.querySelectorAll('.toggle-password').forEach(button => {
@@ -73,6 +106,32 @@ function bindStaticEvents() {
 }
 
 // Auth Functions
+async function fetchWithCSRF(url, options = {}) {
+    const { method = 'GET', headers = {}, _csrfRetry = false, ...rest } = options;
+    const finalHeaders = { 'Content-Type': 'application/json', ...headers };
+    
+    // Add CSRF token for state-modifying requests
+    const unsafeMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+    if (unsafeMethods.includes(method.toUpperCase())) {
+        // Ensure CSRF token is available
+        if (!csrfToken) {
+            await fetchCSRFToken();
+        }
+        if (csrfToken) {
+            finalHeaders['X-CSRF-Token'] = csrfToken;
+        }
+    }
+    
+    const response = await fetch(url, { method, headers: finalHeaders, ...rest });
+
+    if (unsafeMethods.includes(method.toUpperCase()) && response.status === 403 && !_csrfRetry) {
+        await refreshCSRFToken();
+        return fetchWithCSRF(url, { method, headers, _csrfRetry: true, ...rest });
+    }
+
+    return response;
+}
+
 async function checkAuth() {
     try {
         const response = await fetch('/api/user');
@@ -151,9 +210,8 @@ async function handleLogin(event) {
         submitBtn.textContent = 'Logging in...';
         errorDiv.textContent = '';
 
-        const response = await fetch('/api/login', {
+        const response = await fetchWithCSRF('/api/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
 
@@ -161,6 +219,7 @@ async function handleLogin(event) {
 
         if (response.ok) {
             currentUser = { id: data.userId, name: data.name };
+            await refreshCSRFToken();
             showApp();
             loadMonthData();
         } else {
@@ -188,9 +247,8 @@ async function handleRegister(event) {
         submitBtn.textContent = 'Registering...';
         errorDiv.textContent = '';
 
-        const response = await fetch('/api/register', {
+        const response = await fetchWithCSRF('/api/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, password })
         });
 
@@ -198,6 +256,7 @@ async function handleRegister(event) {
 
         if (response.ok) {
             currentUser = { id: data.userId, name };
+            await refreshCSRFToken();
             showApp();
             loadMonthData();
         } else {
@@ -213,8 +272,10 @@ async function handleRegister(event) {
 
 async function handleLogout() {
     try {
-        await fetch('/api/logout', { method: 'POST' });
+        await fetchWithCSRF('/api/logout', { method: 'POST' });
         currentUser = null;
+        csrfToken = null;
+        csrfTokenPromise = null;
         showAuth();
     } catch (error) {
         console.error('Logout error:', error);
@@ -234,9 +295,8 @@ async function handleForgotPassword(event) {
         submitBtn.textContent = 'Processing...';
         errorDiv.textContent = '';
 
-        const response = await fetch('/api/password-reset/request', {
+        const response = await fetchWithCSRF('/api/password-reset/request', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
         });
 
@@ -246,8 +306,11 @@ async function handleForgotPassword(event) {
             // Show step 2 with the token
             document.getElementById('reset-step-1').style.display = 'none';
             document.getElementById('reset-step-2').style.display = 'block';
-            document.getElementById('reset-token').value = data.token;
-            errorDiv.textContent = '';
+            document.getElementById('reset-token').value = data.token || '';
+            errorDiv.className = 'success-message';
+            errorDiv.textContent = data.token
+                ? ''
+                : 'If the email exists, you will receive a reset token.';
         } else {
             errorDiv.textContent = data.error || 'Failed to process request';
         }
@@ -272,9 +335,8 @@ async function handleResetPassword(event) {
         submitBtn.textContent = 'Resetting...';
         errorDiv.textContent = '';
 
-        const response = await fetch('/api/password-reset/confirm', {
+        const response = await fetchWithCSRF('/api/password-reset/confirm', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, password })
         });
 
@@ -476,9 +538,8 @@ function closeModal() {
 
 async function addOfficeDay(date) {
     try {
-        const response = await fetch('/api/office-day', {
+        const response = await fetchWithCSRF('/api/office-day', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ date })
         });
 
@@ -494,7 +555,7 @@ async function removeOfficeDay(date) {
     if (!confirm('Remove this office day?')) return;
 
     try {
-        const response = await fetch(`/api/office-day/${date}`, {
+        const response = await fetchWithCSRF(`/api/office-day/${date}`, {
             method: 'DELETE'
         });
 
@@ -508,9 +569,8 @@ async function removeOfficeDay(date) {
 
 async function addAnnualLeave(date) {
     try {
-        const response = await fetch('/api/annual-leave', {
+        const response = await fetchWithCSRF('/api/annual-leave', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ date })
         });
 
@@ -526,7 +586,7 @@ async function removeAnnualLeave(date) {
     if (!confirm('Remove this annual leave day?')) return;
 
     try {
-        const response = await fetch(`/api/annual-leave/${date}`, {
+        const response = await fetchWithCSRF(`/api/annual-leave/${date}`, {
             method: 'DELETE'
         });
 

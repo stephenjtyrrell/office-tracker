@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const csrf = require('csurf');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -110,8 +111,35 @@ app.use(session({
   }
 }));
 
+// CSRF protection middleware - only validate for state-modifying requests
+const csrfProtection = process.env.NODE_ENV === 'test' 
+  ? (req, res, next) => next() 
+  : csrf({ cookie: false });
+
+// Custom middleware to apply CSRF protection only to unsafe methods
+const csrfMiddleware = (req, res, next) => {
+  const unsafeMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (unsafeMethods.includes(req.method)) {
+    csrfProtection(req, res, next);
+  } else {
+    next();
+  }
+};
+
+app.use(csrfMiddleware);
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
+
+// CSRF token endpoint - apply CSRF middleware just for this endpoint
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  if (process.env.NODE_ENV === 'test') {
+    // Return a dummy token for testing
+    res.json({ csrfToken: 'test-csrf-token' });
+  } else {
+    res.json({ csrfToken: req.csrfToken() });
+  }
+});
 
 // Apply API rate limiting to all API routes
 app.use('/api', apiLimiter);
@@ -275,6 +303,10 @@ function generateResetToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 // Request password reset
 app.post('/api/password-reset/request', authLimiter, [
   body('email').isEmail().normalizeEmail()
@@ -297,15 +329,23 @@ app.post('/api/password-reset/request', authLimiter, [
 
     // Generate token (valid for 1 hour)
     const token = generateResetToken();
+    const tokenHash = hashResetToken(token);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-    // Store token
+    // Invalidate any existing tokens for this user
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+
+    // Store hashed token
     await pool.query(
       'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, token, expiresAt]
+      [user.id, tokenHash, expiresAt]
     );
 
-    res.json({ message: 'Reset token generated', token });
+    if (process.env.NODE_ENV === 'production') {
+      res.json({ message: 'If email exists, reset token has been sent' });
+    } else {
+      res.json({ message: 'Reset token generated', token });
+    }
   } catch (error) {
     console.error('Password reset request error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -327,11 +367,12 @@ app.post('/api/password-reset/confirm', [
 
     const { token, password } = req.body;
     debugLog('[PASSWORD RESET CONFIRM] Received token length:', token?.length);
-    debugLog('[PASSWORD RESET CONFIRM] Token preview:', token?.substring(0, 10) + '...');
+
+    const tokenHash = hashResetToken(token);
 
     const resetRecordResult = await pool.query(
       'SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = $1',
-      [token]
+      [tokenHash]
     );
     const resetRecord = resetRecordResult.rows[0];
 
@@ -355,14 +396,14 @@ app.post('/api/password-reset/confirm', [
     // Hash new password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Update user password and delete token
+    // Update user password and delete all tokens for this user
     const updateResult = await pool.query(
       'UPDATE users SET password = $1 WHERE id = $2',
       [hashedPassword, resetRecord.user_id]
     );
     debugLog('[PASSWORD RESET CONFIRM] Update result:', updateResult.rowCount, 'rows updated for user:', resetRecord.user_id);
 
-    await pool.query('DELETE FROM password_reset_tokens WHERE id = $1', [resetRecord.id]);
+    await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [resetRecord.user_id]);
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {
@@ -516,6 +557,18 @@ app.delete('/api/annual-leave/:date', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Delete annual leave error:', error);
     res.status(500).json({ error: 'Failed to remove annual leave' });
+  }
+});
+
+// CSRF error handler for invalid tokens
+app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN' || err.message === 'invalid csrf token' || err.name === 'ForbiddenError') {
+    // CSRF token errors
+    res.status(403).json({ error: 'Invalid CSRF token' });
+  } else {
+    // Log other errors and pass to default handler
+    console.error('Unexpected error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
