@@ -68,9 +68,17 @@ if (process.env.NODE_ENV === 'production') {
     },
   }));
 } else {
-  // Development mode - disable CSP for local testing
+  // Development mode - use a relaxed CSP instead of disabling it entirely
   app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "http://localhost:*", "https://localhost:*"],
+        styleSrc: ["'self'", "'unsafe-inline'", "http://localhost:*", "https://localhost:*"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "ws://localhost:*", "wss://localhost:*", "http://localhost:*", "https://localhost:*"],
+      },
+    },
   }));
 }
 
