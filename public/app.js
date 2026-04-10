@@ -79,6 +79,7 @@ async function checkAuth() {
         if (response.ok) {
             currentUser = await response.json();
             showApp();
+            await checkPastPlannedDays(); // Check for past planned days first
             loadMonthData();
         } else {
             showAuth();
@@ -411,6 +412,7 @@ function renderCalendar() {
         const isToday = dateStr === todayStr;
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isOfficeDay = monthData.officeDates.includes(dateStr);
+        const isPlannedDay = monthData.plannedDates && monthData.plannedDates.includes(dateStr);
         const isAnnualLeave = monthData.annualLeaveDates.includes(dateStr);
         const isPublicHoliday = monthData.publicHolidayDates && monthData.publicHolidayDates.includes(dateStr);
 
@@ -418,6 +420,10 @@ function renderCalendar() {
             dayEl.classList.add('annual-leave');
             dayEl.title = 'Annual Leave - Click to remove';
             dayEl.onclick = () => removeAnnualLeave(dateStr);
+        } else if (isPlannedDay) {
+            dayEl.classList.add('planned-day');
+            dayEl.title = 'Planned Office Day - Click to remove';
+            dayEl.onclick = () => removeOfficeDay(dateStr);
         } else if (isOfficeDay) {
             dayEl.classList.add('office-day');
             dayEl.title = 'Office Day - Click to remove';
@@ -544,4 +550,60 @@ function formatDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+// Check for past planned days that need confirmation
+async function checkPastPlannedDays() {
+    try {
+        const response = await fetch('/api/past-planned-days');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        if (data.pastPlannedDays && data.pastPlannedDays.length > 0) {
+            showPastPlannedDaysDialog(data.pastPlannedDays);
+        }
+    } catch (error) {
+        console.error('Error checking past planned days:', error);
+    }
+}
+
+// Show dialog for past planned days
+function showPastPlannedDaysDialog(dates) {
+    const dateList = dates.map(date => {
+        const d = new Date(date + 'T00:00:00');
+        return d.toLocaleDateString('en-IE', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    }).join('\n• ');
+
+    const message = `You had planned to come to the office on these days:\n\n• ${dateList}\n\nDid you come to the office on these days?`;
+    
+    if (confirm(message)) {
+        confirmPastPlannedDays(dates, true);
+    } else {
+        confirmPastPlannedDays(dates, false);
+    }
+}
+
+// Confirm or reject past planned days
+async function confirmPastPlannedDays(dates, confirmed) {
+    try {
+        const response = await fetch('/api/confirm-planned-days', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dates, confirmed })
+        });
+
+        if (response.ok) {
+            // Reload the month data to reflect changes
+            if (monthData) {
+                loadMonthData();
+            }
+        }
+    } catch (error) {
+        console.error('Error confirming planned days:', error);
+    }
 }
